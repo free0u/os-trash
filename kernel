@@ -1,0 +1,91 @@
+Process = r ~> Context
+
+ProcessInfo = record {
+    pid : Int
+    ruid : Int
+    rgid : Int
+    euid : Int
+    egid : Int
+    ppid : Int
+    gids : [Int]
+    pwd : Path
+    namespace : Map<Path, Inode*>
+    fdTable : Map<int, FdId>
+}
+
+FdId = record {
+    fdInfo : FdInfo
+    data : Ptr
+}
+
+FdInfo = record {
+    flags: Set
+    SeekPos: VeryLongInt
+}
+
+Inode = record {
+    type: File | Dir
+    atime : datetime
+    mtime : datetime
+    modes : Int
+    owner : Int
+    group : Int
+    data: IDataType*
+}
+
+Registers = record {
+    hr0
+    hr1
+    hr2 
+    hr3
+    .....
+}
+
+HD = record {
+    mmu: PointerTable
+    registers: Registers
+}
+
+r~> Context = record {
+    ret: *r
+    processInfo: ProcessInfo
+    kas: *HD
+
+}
+
+Context = record {
+    tag: SyscallTag,
+    Argv: Arg tag
+    Cont: Process(Ret tag)
+}
+
+
+
+kernel() {
+    runnableProcesses = []
+    runnableProcessesArgs = []
+
+    waitingProcesses : Map<SyscallTag, [Process]>
+
+    schedule : Map<pid, time_t>
+
+    while true:
+        curProc = head(runnableProcesses)
+        args = head (runnableProcessesArgs)
+
+        foreach(process in waitingProcesses[sleepTag])
+            if (schedule[process.pid] <= currentTime)
+               move(process, runnableProcesses)
+
+
+        context = curProc.exec(args)
+
+        switch context.tag:
+            case forkTag:
+                int pid = newPid()
+                runnableProcesses.append(new Process(pid, context.cont(0), ....))
+                runnableProcesses.append(new Process(curProc.pid, context.cont(pid), ....))
+
+     
+
+}
