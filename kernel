@@ -1,36 +1,41 @@
 Process = r ~> Context
 
+
 ProcessInfo = record {
-    pid : Int
-    ruid : Int
-    rgid : Int
-    euid : Int
-    egid : Int
-    ppid : Int
-    gids : [Int]
-    pwd : Path
-    namespace : Map<Path, Inode*>
-    fdTable : Map<int, FdId>
+    pid : Int // Process id
+    ruid : Int // Real user id (user, who started the process)
+    rgid : Int // Real group id
+    euid : Int // Effective user id (may be different from real if file has suid bit : euid = file owner id)
+    egid : Int // Effective gid (may be different from real if file has sgid bit : egid = file group id)
+    ppid : Int // Parent process id
+    gids : [Int] // Additional gids of user running the process
+    pwd : Path // Current working directory
+    namespace : Map<Path, Inode*> // Mount table
+    fdTable : Map<int, FdId> // File descriptors used by process
 }
 
 FdId = record {
     fdInfo : FdInfo
-    data : Ptr
+    data : Ptr // Pointer to file data
 }
 
 FdInfo = record {
-    flags: Set
+    flags: Set // Modes for the file (read / write)
     SeekPos: VeryLongInt
 }
 
-Inode = record {
-    type: File | Dir
-    atime : datetime
-    mtime : datetime
-    modes : Int
+Inode = record { // File system unit that describes a file
+    type: File | Dir 
+    atime : datetime // Last access time
+    mtime : datetime // Last modification time
+    modes : Int // Modifiers : 4 octal numbers. First: 1 = sticky, 2 = sgid, 4 = suid.
+                // Sticky bit for directory means that user cannot delete a file in it unless he is an owner
+                // sgid, suid : see ProcessInfo::euid, ProcessInfo::egid
+                // Example: 3 = sticky + sgid, 7 = sticky + sgid + suid
+
     owner : Int
     group : Int
-    data: IDataType*
+    data: IDataType* // Pointer to first data segment of a file or a segment with directory entries
 }
 
 Registers = record {
@@ -42,50 +47,69 @@ Registers = record {
 }
 
 HD = record {
-    mmu: PointerTable
-    registers: Registers
+    mmu: PointerTable // Data structure that stores memory mapping and can allocate memory
+    registers: Registers // Processor registers that must be saved during process execution
 }
 
 r~> Context = record {
-    ret: *r
+    ret: *r // Consider this an operator() (r)
     processInfo: ProcessInfo
-    kas: *HD
+    kas: *HD // Kernel address space, see HD description
 
 }
 
 Context = record {
-    tag: SyscallTag,
-    Argv: Arg tag
-    Cont: Process(Ret tag)
+    tag: SyscallTag // Number of syscall
+    Argv: Arg tag // Arguments that should be passed to syscall
+    Cont: Process(Ret tag) // Continuation of the process. Result of syscall execution will be passed as its argument
 }
 
 
 
 kernel() {
+    // Processes that can be runned immediately
     runnableProcesses = []
-    runnableProcessesArgs = []
 
-    waitingProcesses : Map<SyscallTag, [Process]>
+    // Processes waiting for some syscall to complete
+    waitingProcesses : Map<SyscallTag, [Pair<Process, Context>]>
 
+    // Currently sleeping processes
     schedule : Map<pid, time_t>
 
-    while true:
+    while true {
+
+        // Waking up
+        foreach(process, context in waitingProcesses[sleepTag]) {
+            if (schedule[process.pid] <= currentTime) {
+               waitingProcesses[sleepTag].remove(process)
+               runnableProcesses.append(new Process(process.pid, context.cont(0), ...)
+            }
+        }
+
+        // Getting current process
         curProc = head(runnableProcesses)
-        args = head (runnableProcessesArgs)
+        context = curProc.exec()
 
-        foreach(process in waitingProcesses[sleepTag])
-            if (schedule[process.pid] <= currentTime)
-               move(process, runnableProcesses)
-
-
-        context = curProc.exec(args)
-
-        switch context.tag:
+        // Executing syscalls
+        switch context.tag {
             case forkTag:
                 int pid = newPid()
-                runnableProcesses.append(new Process(pid, context.cont(0), ....))
-                runnableProcesses.append(new Process(curProc.pid, context.cont(pid), ....))
-
-     
+                runnableProcesses.append(new Process(pid, context.cont(0), ...))
+                runnableProcesses.append(new Process(curProc.pid, context.cont(pid), ...))
+                break
+            case sleepTag:
+                waitingProcesses.put(sleepTag, {curProc, context});
+                break
+            case writeTag:
+                fdId = curProc.fdTable[context.argv[0]]
+                if (fdId == NULL || fdId.flags & FLG_WRITE == 0) {
+                    runnableProcesses.append(new Process(curProc.pid, context.cont(-1), ...))
+                buf = context.argv[1]
+                count = context.argv[2]
+                result = getDeviceDriver(fdId.data).write(buf, count)
+                runnableProcesses.append(new Process(curProc.pid, context.cont(result), ...))
+                break
+        }
+    } 
 
 }
