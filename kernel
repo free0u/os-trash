@@ -154,7 +154,11 @@ kernel() {
                     getDeviceDriver(fdId.data).addReadTask(buf, count)
                     waitingProcesses.put(readTag, {curProc, context})
                 }
+                break
+
             case pipeTag:
+                    
+            case dup2Tag:
             case openTag:
             case closeTag:
             case mmapTag:
@@ -169,6 +173,17 @@ kernel() {
             case exitTag:
             case setuidTag:
             case setgidTag:
+            case allocTag:
+                k = context.argv[0]
+                ptr = curProc.hd.mmu.allocate(k);
+                runnableProcesses.append(new Process(..., context.cont(ptr), ...))
+                break
+
+            case freeTag:
+                ptr = context.argv[0]
+                curProc.hd.mmu.release(ptr)
+                runnableProcesses.append(new Process(..., context.cont(), ...))
+
 
         }
     } 
