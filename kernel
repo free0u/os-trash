@@ -121,6 +121,15 @@ kernel() {
                 Path file = context.argv[0]
                 String[] argv = context.argv[1]
                 pid = newPid()
+                if (checkAccessRights(file, curProc.euid, curProc.egid, EXEC)) {
+                    newEuid = isSuid(file) ? getOwner(file) : curProc.Euid
+                    newEgid = isGuid(file) ? getGroup(file) : curProc.Egid
+                    runnableProcesses.append(new Process(pid, loadMain(file)(argv.length, argv), newEuid, newEgid, curProc.ruid, curProc.rgid, ..))
+                    runnableProcesses.append(new Process(curProc.pid, curProc.cont(0), ...))
+                } else {
+                    runnableProcesses.append(new Process(curProc.pid, curProc.cont(-1), ...))
+                }
+
                
             case read:
             case pipefd:
