@@ -56,7 +56,6 @@ r~> Context = record {
     ret: *r // Consider this an operator() (r)
     processInfo: ProcessInfo
     kas: *HD // Kernel address space, see HD description
-
 }
 
 Context = record {
@@ -89,6 +88,11 @@ kernel() {
 
        // Getting current process
         curProc = head(runnableProcesses)
+
+        if (curProc == NULL) {
+            continue
+        }
+
         // We already binded arguments on process creation, so we don't need to pass them here
         // Actually, there's no difference between passing args here or binding, but with binding we don't need additional list for arguments
         context = curProc.exec()
@@ -97,7 +101,7 @@ kernel() {
         // Executing syscalls
         switch context.tag {
             case forkTag:
-                int pid = newPid()
+                pid = newPid()
                 runnableProcesses.append(new Process(pid, context.cont(0), ...))
                 runnableProcesses.append(new Process(curProc.pid, context.cont(pid), ...))
                 break
@@ -113,6 +117,28 @@ kernel() {
                 result = getDeviceDriver(fdId.data).write(buf, count)
                 runnableProcesses.append(new Process(curProc.pid, context.cont(result), ...))
                 break
+            case execTag:
+                Path file = context.argv[0]
+                String[] argv = context.argv[1]
+                pid = newPid()
+               
+            case read:
+            case pipefd:
+            case open:
+            case close:
+            case mmap:
+            case munmap:
+            case mount:
+            case umount:
+            case chmod:
+            case chown:
+            case chgrp:
+            case chroot:
+            case chdir:
+            case exit:
+            case setuid:
+            case setgid:
+
         }
     } 
 
