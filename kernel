@@ -131,22 +131,22 @@ kernel() {
                 }
 
                
-            case read:
-            case pipefd:
-            case open:
-            case close:
-            case mmap:
-            case munmap:
-            case mount:
-            case umount:
-            case chmod:
-            case chown:
-            case chgrp:
-            case chroot:
-            case chdir:
-            case exit:
-            case setuid:
-            case setgid:
+            case readTag:
+            case pipefdTag:
+            case openTag:
+            case closeTag:
+            case mmapTag:
+            case munmapTag:
+            case mountTag:
+            case umountTag:
+            case chmodTag:
+            case chownTag:
+            case chgrpTag:
+            case chrootTag:
+            case chdirTag:
+            case exitTag:
+            case setuidTag:
+            case setgidTag:
 
         }
     } 
