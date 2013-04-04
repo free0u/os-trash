@@ -86,7 +86,18 @@ kernel() {
             }
         }
 
-       // Getting current process
+        // Reading
+        foreach(process, context in waitingProcesses[readTag]) {
+            fdId = process.fdTable[context.argv[0]]
+            driver = getDeviceDriver(fdId.data)
+            if (driver.readyRead) {
+                count = driver.getReadCount
+                runnableProcesses.append(new Process(process.pid, context.cont(count), ...))
+            }
+        }
+
+
+        // Getting current process
         curProc = head(runnableProcesses)
 
         if (curProc == NULL) {
@@ -112,6 +123,8 @@ kernel() {
                 fdId = curProc.fdTable[context.argv[0]]
                 if (fdId == NULL || fdId.flags & FLG_WRITE == 0) {
                     runnableProcesses.append(new Process(curProc.pid, context.cont(-1), ...))
+                    break
+                }
                 buf = context.argv[1]
                 count = context.argv[2]
                 result = getDeviceDriver(fdId.data).write(buf, count)
@@ -129,10 +142,19 @@ kernel() {
                 } else {
                     runnableProcesses.append(new Process(curProc.pid, curProc.cont(-1), ...))
                 }
+                break
 
                
             case readTag:
-            case pipefdTag:
+                fdId = curProc.fdTable[context.argv[0]]
+                if (fdId == NULL || fdId.flags & FLG_READ == 0) {
+                    runnableProcesses.append(new Process(curProc.pid, context.cont(-1), ...))
+                    break
+                } else {
+                    getDeviceDriver(fdId.data).addReadTask(buf, count)
+                    waitingProcesses.put(readTag, {curProc, context})
+                }
+            case pipeTag:
             case openTag:
             case closeTag:
             case mmapTag:
