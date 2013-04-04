@@ -89,7 +89,8 @@ kernel() {
 
        // Getting current process
         curProc = head(runnableProcesses)
-        // TODO: maybe we have to store syscall return value with process in runnableProcesses. And exec function should execute due to this value
+        // We already binded arguments on process creation, so we don't need to pass them here
+        // Actually, there's no difference between passing args here or binding, but with binding we don't need additional list for arguments
         context = curProc.exec()
 
 
