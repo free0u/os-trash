@@ -28,10 +28,11 @@ Inode = record { // File system unit that describes a file
     type: File | Dir 
     atime : datetime // Last access time
     mtime : datetime // Last modification time
-    modes : Int // Modifiers : 4 octal numbers. First: 1 = sticky, 2 = sgid, 4 = suid.
-                // Sticky bit for directory means that user cannot delete a file in it unless he is an owner
-                // sgid, suid : see ProcessInfo::euid, ProcessInfo::egid
-                // Example: 3 = sticky + sgid, 7 = sticky + sgid + suid
+    modes : Int // Modifiers : 4 octal numbers(first for owner of file, second for users who are members of the file's group, third for
+                // users who are not the owner of the file or members of the group, fourth for all three of the above).
+                // Every number constists of three bits : 001 - execute only, 010 - write only, 100 - read only. 
+                // Example: 011 - write and execute. 
+
 
     owner : Int
     group : Int
@@ -86,9 +87,11 @@ kernel() {
             }
         }
 
-        // Getting current process
+       // Getting current process
         curProc = head(runnableProcesses)
+        // TODO: maybe we have to store syscall return value with process in runnableProcesses. And exec function should execute due to this value
         context = curProc.exec()
+
 
         // Executing syscalls
         switch context.tag {
